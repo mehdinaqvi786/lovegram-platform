@@ -3,19 +3,24 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 const isPublicRoute = createRouteMatcher([
   '/',
   '/auth(.*)',
-  '/dashboard(.*)',
   '/api/public(.*)',
 ])
 
-export default clerkMiddleware(async (auth, req) => {
-  // Allow public routes
-  if (isPublicRoute(req)) {
-    return
-  }
+export default clerkMiddleware(
+  async (auth, req) => {
+    // Allow public routes
+    if (isPublicRoute(req)) {
+      return
+    }
 
-  // Protect all other routes
-  await auth.protect()
-})
+    // Protect all other routes
+    await auth.protect()
+  },
+  {
+    signInUrl: '/auth/log-in',
+    signUpUrl: '/auth/sign-up',
+  },
+)
 
 export const config = {
   matcher: [
