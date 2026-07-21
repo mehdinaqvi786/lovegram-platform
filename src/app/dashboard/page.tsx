@@ -22,10 +22,10 @@ export default function DashboardHome() {
       <section className="container-app py-12">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold mb-4">Welcome to LoveGram!</h2>
-          <p className="text-slate-400">Your dashboard is under construction</p>
+          <p className="text-slate-400">Your connection dashboard is ready. Explore matches, messages, and profile settings.</p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           <div className="card p-6 text-center">
             <h3 className="text-xl font-semibold mb-2">Profile</h3>
             <p className="text-slate-400 mb-4">Complete your profile</p>
@@ -36,14 +36,34 @@ export default function DashboardHome() {
             </Link>
           </div>
 
-          <div className="card p-6 text-center opacity-50">
+          <div className="card p-6 text-center">
             <h3 className="text-xl font-semibold mb-2">Matches</h3>
-            <p className="text-slate-400 mb-4">Coming soon</p>
+            <p className="text-slate-400 mb-4">Browse your best matches</p>
+            <Link href={ROUTES.DASHBOARD.MATCHES}>
+              <Button variant="primary" className="w-full">
+                View Matches
+              </Button>
+            </Link>
           </div>
 
-          <div className="card p-6 text-center opacity-50">
+          <div className="card p-6 text-center">
             <h3 className="text-xl font-semibold mb-2">Messages</h3>
-            <p className="text-slate-400 mb-4">Coming soon</p>
+            <p className="text-slate-400 mb-4">Continue your conversations</p>
+            <Link href={ROUTES.DASHBOARD.MESSAGES}>
+              <Button variant="secondary" className="w-full">
+                Open Messages
+              </Button>
+            </Link>
+          </div>
+
+          <div className="card p-6 text-center">
+            <h3 className="text-xl font-semibold mb-2">Settings</h3>
+            <p className="text-slate-400 mb-4">Manage account and preferences</p>
+            <Link href={ROUTES.DASHBOARD.SETTINGS}>
+              <Button variant="ghost" className="w-full">
+                Open Settings
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
