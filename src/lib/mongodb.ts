@@ -7,10 +7,21 @@ declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined
 }
 
+function getMongoUri() {
+  return (
+    process.env.MONGODB_URI ||
+    process.env.MONGO_URI ||
+    process.env.DATABASE_URL ||
+    ''
+  )
+}
+
 async function createMongoClient() {
-  const uri = process.env.MONGODB_URI
+  const uri = getMongoUri()
   if (!uri) {
-    throw new Error('Missing MONGODB_URI in environment variables')
+    throw new Error(
+      'Missing MongoDB connection string. Set MONGODB_URI, MONGO_URI, or DATABASE_URL in your environment.'
+    )
   }
 
   const client = new MongoClient(uri, options)
