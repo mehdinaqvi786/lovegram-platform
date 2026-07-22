@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { useAuth } from '@clerk/nextjs'
 import { Heart, Sparkles, Zap } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { ROUTES } from '@/constants'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 const featureCards = [
   {
@@ -35,7 +35,7 @@ const floatTransition: any = {
 }
 
 export default function Home() {
-  const { isSignedIn } = useAuth()
+  const { isSignedIn } = useCurrentUser()
   const destinationRoute = isSignedIn ? ROUTES.DASHBOARD.HOME : ROUTES.AUTH.SIGN_UP
 
   return (

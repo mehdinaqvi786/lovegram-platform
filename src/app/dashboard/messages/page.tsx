@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
 import { ArrowLeft, MessageCircle } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { ROUTES } from '@/constants'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
 type ThreadOverview = {
   id: string
@@ -14,61 +14,45 @@ type ThreadOverview = {
   preview: string
   time: string
   unread: number
+  lastMessageSender?: string
 }
 
-const STORAGE_KEY = 'lovergram-threads'
 const BROADCAST_CHANNEL = 'lovergram-thread-updates'
 
-const sampleThreads: ThreadOverview[] = [
-  {
-    id: 'sofia-thread',
-    matchId: 'sofia',
-    name: 'Sofia',
-    preview: 'Can we meet for coffee this weekend?',
-    time: '2h ago',
-    unread: 1,
-  },
-  {
-    id: 'ethan-thread',
-    matchId: 'ethan',
-    name: 'Ethan',
-    preview: 'I loved your playlist idea — let’s share favorites!',
-    time: 'Yesterday',
-    unread: 0,
-  },
-  {
-    id: 'maya-thread',
-    matchId: 'maya',
-    name: 'Maya',
-    preview: 'How did your weekend getaway go? I want to hear all about it.',
-    time: '3d ago',
-    unread: 2,
-  },
-]
-
-const loadThreads = (): ThreadOverview[] => {
-  if (typeof window === 'undefined') return sampleThreads
-  const stored = window.localStorage.getItem(STORAGE_KEY)
-  if (!stored) return sampleThreads
-
-  try {
-    return JSON.parse(stored) as ThreadOverview[]
-  } catch {
-    return sampleThreads
-  }
-}
-
 export default function DashboardMessagesPage() {
-  const { user, isLoaded } = useUser()
+  const { user, loading } = useCurrentUser()
   const displayName = useMemo(() => user?.firstName || 'Friend', [user])
-  const [threads, setThreads] = useState<ThreadOverview[]>(loadThreads)
+  const [threads, setThreads] = useState<ThreadOverview[]>([])
+  const [threadLoading, setThreadLoading] = useState(true)
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(threads))
-  }, [threads])
+    const fetchThreads = async () => {
+      setThreadLoading(true)
+      try {
+        const response = await fetch('/api/messages', {
+          credentials: 'include',
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setThreads(data.threads || [])
+        }
+      } catch (error) {
+        console.error('Failed to load message threads:', error)
+      } finally {
+        setThreadLoading(false)
+      }
+    }
+
+    fetchThreads()
+  }, [])
 
   useEffect(() => {
-    const channel = new BroadcastChannel(BROADCAST_CHANNEL)
+    let channel: BroadcastChannel | null = null
+    try {
+      channel = new BroadcastChannel(BROADCAST_CHANNEL)
+    } catch (err) {
+      channel = null
+    }
 
     const handleMessage = (event: MessageEvent) => {
       const payload = event.data
@@ -88,10 +72,15 @@ export default function DashboardMessagesPage() {
       )
     }
 
-    channel.addEventListener('message', handleMessage)
+    if (channel) {
+      channel.addEventListener('message', handleMessage)
+    }
+
     return () => {
-      channel.removeEventListener('message', handleMessage)
-      channel.close()
+      if (channel) {
+        channel.removeEventListener('message', handleMessage)
+        channel.close()
+      }
     }
   }, [])
 
@@ -103,9 +92,9 @@ export default function DashboardMessagesPage() {
             <p className="text-sm uppercase tracking-[0.25em] text-rose-400">Messages</p>
             <h1 className="mt-3 text-4xl font-semibold">Stay connected</h1>
             <p className="mt-2 max-w-2xl text-slate-400">
-              {isLoaded
-                ? `${displayName}, these are your recent conversations on LoveGram.`
-                : 'Loading your message threads...'}
+              {loading
+                ? 'Loading your message threads...'
+                : `${displayName}, these are your recent conversations on LoveGram.`}
             </p>
           </div>
 
@@ -117,37 +106,63 @@ export default function DashboardMessagesPage() {
         </div>
 
         <div className="grid gap-4">
-          {threads.map((thread) => (
-            <div key={thread.id} className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/20 transition hover:-translate-y-1">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xl font-semibold text-white">{thread.name}</p>
-                  <p className="mt-1 text-sm text-slate-400">{thread.preview}</p>
-                </div>
-                <div className="text-right text-sm text-slate-400">
-                  <p>{thread.time}</p>
-                  {thread.unread > 0 && (
-                    <span className="mt-2 inline-flex rounded-full bg-rose-500/15 px-3 py-1 text-sm font-semibold text-rose-200">
-                      {thread.unread} new
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-3">
-                <Link href={`${ROUTES.DASHBOARD.MESSAGES}/${thread.id}`} className="w-full sm:w-auto">
-                  <Button variant="primary" className="w-full sm:w-auto">
-                    Continue chat
-                  </Button>
-                </Link>
-                <Link href={`${ROUTES.DASHBOARD.MATCHES}/${thread.matchId}`} className="w-full sm:w-auto">
-                  <Button variant="secondary" className="w-full sm:w-auto">
-                    View profile
-                  </Button>
+          {threadLoading ? (
+            <div className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-12 text-center text-slate-400">
+              Loading your conversations...
+            </div>
+          ) : threads.length === 0 ? (
+            <div className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-12 text-center text-slate-400">
+              <p className="text-lg font-medium text-white">No conversations yet.</p>
+              <p className="mt-3">You have no active chats right now. Browse matches and start a meaningful conversation.</p>
+              <div className="mt-6">
+                <Link href={ROUTES.DASHBOARD.MATCHES} className="inline-flex items-center justify-center rounded-full bg-rose-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-rose-400">
+                  Browse matches
                 </Link>
               </div>
             </div>
-          ))}
+          ) : (
+            threads.map((thread) => (
+              <div key={thread.id} className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/20 transition hover:-translate-y-1">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="rounded-full bg-rose-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-rose-200">
+                        {thread.lastMessageSender || 'New chat'}
+                      </span>
+                      <h2 className="text-2xl font-semibold text-white">{thread.name}</h2>
+                    </div>
+                    <p className="max-w-2xl text-sm leading-6 text-slate-400">
+                      {thread.preview || 'No messages yet — say hello to get the conversation started.'}
+                    </p>
+                  </div>
+
+                  <div className="text-right text-sm text-slate-400">
+                    <p>{thread.time || 'Just now'}</p>
+                    {thread.unread > 0 && (
+                      <span className="mt-2 inline-flex rounded-full bg-rose-500/15 px-3 py-1 text-sm font-semibold text-rose-200">
+                        {thread.unread} new
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Link href={`${ROUTES.DASHBOARD.MESSAGES}/${thread.id}`} className="w-full sm:w-auto">
+                    <Button variant="primary" className="w-full sm:w-auto">
+                      Continue chat
+                    </Button>
+                  </Link>
+                  {thread.matchId && (
+                    <Link href={`${ROUTES.DASHBOARD.MATCHES}/${thread.matchId}`} className="w-full sm:w-auto">
+                      <Button variant="secondary" className="w-full sm:w-auto">
+                        View profile
+                      </Button>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="mt-10 rounded-[2rem] border border-white/10 bg-slate-900/80 p-6 text-slate-400">

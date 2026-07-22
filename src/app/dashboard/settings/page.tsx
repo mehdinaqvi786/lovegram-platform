@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useAuth, useUser } from '@clerk/nextjs'
 import { ArrowLeft, Bell, Lock, Moon, Sun } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { ROUTES } from '@/constants'
+import { useAuthClient, useCurrentUser } from '@/hooks/useCurrentUser'
 
 export default function DashboardSettingsPage() {
-  const { signOut } = useAuth()
-  const { user, isLoaded } = useUser()
+  const { signOut } = useAuthClient()
+  const { user, loading } = useCurrentUser()
   const [notifications, setNotifications] = useState(true)
   const [darkMode, setDarkMode] = useState(true)
   const [privateProfile, setPrivateProfile] = useState(false)
@@ -24,9 +24,9 @@ export default function DashboardSettingsPage() {
             <p className="text-sm uppercase tracking-[0.25em] text-rose-400">Settings</p>
             <h1 className="mt-3 text-4xl font-semibold">Account preferences</h1>
             <p className="mt-2 max-w-2xl text-slate-400">
-              {isLoaded
-                ? `Manage your experience, notification settings, and privacy controls, ${displayName}.`
-                : 'Loading your settings...'}
+              {loading
+                ? 'Loading your settings...'
+                : `Manage your experience, notification settings, and privacy controls, ${displayName}.`}
             </p>
           </div>
 
@@ -111,15 +111,15 @@ export default function DashboardSettingsPage() {
             <div className="grid gap-4 rounded-3xl border border-white/10 bg-slate-950/80 p-6">
               <div>
                 <p className="text-sm text-slate-400">Full name</p>
-                <p className="mt-2 text-lg font-semibold text-white">{user?.fullName || 'Your name'}</p>
+                <p className="mt-2 text-lg font-semibold text-white">{user ? `${user.firstName} ${user.lastName}` : 'Your name'}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-400">Email</p>
-                <p className="mt-2 text-lg font-semibold text-white">{user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || 'No email available'}</p>
+                <p className="mt-2 text-lg font-semibold text-white">{user?.email || 'No email available'}</p>
               </div>
               <div>
                 <p className="text-sm text-slate-400">Account status</p>
-                <p className="mt-2 text-lg font-semibold text-white">{String(user?.unsafeMetadata?.accountStatus ?? 'Active')}</p>
+                <p className="mt-2 text-lg font-semibold text-white">Active</p>
               </div>
             </div>
             <div className="rounded-3xl border border-white/10 bg-slate-950/80 p-6 text-slate-400">

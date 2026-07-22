@@ -1,41 +1,10 @@
 import Link from 'next/link'
+import { ObjectId } from 'mongodb'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Heart, MapPin, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { ROUTES } from '@/constants'
-
-const matchProfiles = [
-  {
-    id: 'sofia',
-    name: 'Sofia',
-    age: 27,
-    location: 'Lisbon',
-    compatibility: 92,
-    bio: 'A soulful storyteller who loves slow mornings, sunset strolls, and thoughtful conversations.',
-    interests: ['Travel', 'Coffee', 'Books', 'Art'],
-    message: 'I love sharing the little moments and exploring new neighborhoods together.',
-  },
-  {
-    id: 'ethan',
-    name: 'Ethan',
-    age: 29,
-    location: 'Barcelona',
-    compatibility: 88,
-    bio: 'A musician at heart, always planning a spontaneous date or a new playlist together.',
-    interests: ['Music', 'Food', 'Hiking', 'Photography'],
-    message: 'I value deep conversations, honesty, and living each day with intention.',
-  },
-  {
-    id: 'maya',
-    name: 'Maya',
-    age: 25,
-    location: 'Berlin',
-    compatibility: 94,
-    bio: 'A creative spirit with a love for quiet nights in, thoughtful letters, and shared dreams.',
-    interests: ['Writing', 'Yoga', 'Nature', 'Design'],
-    message: 'I enjoy learning what makes someone feel truly seen and understood.',
-  },
-]
+import { getMongoClient } from '@/lib/mongodb'
 
 interface MatchDetailPageProps {
   params: Promise<{
@@ -43,9 +12,36 @@ interface MatchDetailPageProps {
   }>
 }
 
+async function getMatchProfile(matchId: string) {
+  if (!ObjectId.isValid(matchId)) {
+    return null
+  }
+
+  try {
+    const client = await getMongoClient()
+    const db = client.db()
+    const users = db.collection('users')
+    const user = await users.findOne({ _id: new ObjectId(matchId) }, { projection: { passwordHash: 0 } })
+    if (!user) return null
+
+    return {
+      id: user._id.toString(),
+      name: user.firstName,
+      age: 27,
+      location: 'Unknown',
+      compatibility: 88,
+      bio: user.bio || 'Looking for a great connection.',
+      interests: ['Shared interests', 'Conversation', 'Connection'],
+      message: `Hi ${user.firstName}, I’d love to learn more about what makes you smile.`,
+    }
+  } catch {
+    return null
+  }
+}
+
 export default async function MatchDetailPage({ params }: MatchDetailPageProps) {
   const { matchId } = await params
-  const match = matchProfiles.find((item) => item.id === matchId)
+  const match = await getMatchProfile(matchId)
 
   if (!match) {
     notFound()
@@ -107,7 +103,7 @@ export default async function MatchDetailPage({ params }: MatchDetailPageProps) 
             <div className="rounded-3xl border border-white/10 bg-slate-950/80 p-6">
               <p className="text-sm uppercase tracking-[0.24em] text-rose-300">Next step</p>
               <p className="mt-4 text-slate-400 leading-7">Send a warm message, mention something you noticed, and ask a gentle question.</p>
-              <Link href={`${ROUTES.DASHBOARD.MESSAGES}/${match.id}-thread`} className="mt-6 block">
+              <Link href={`${ROUTES.DASHBOARD.MESSAGES}/${match.id}`} className="mt-6 block">
                 <Button variant="primary" className="w-full">
                   Message {match.name}
                 </Button>

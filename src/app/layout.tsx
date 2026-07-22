@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { ClerkProvider } from '@clerk/nextjs'
 import { Toaster } from 'sonner'
 import './globals.css'
 
@@ -20,22 +19,16 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
-      <html
-        lang="en"
-        suppressHydrationWarning
-        className="scroll-smooth dark"
-      >
-        <head>
-          <meta charSet="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <link rel="icon" href="/favicon.ico" />
-        </head>
-        <body className="bg-slate-950 text-slate-50 antialiased min-h-screen">
-          {children}
-          <Toaster theme="dark" position="bottom-right" richColors />
-        </body>
-      </html>
-    </ClerkProvider>
+    <html lang="en" suppressHydrationWarning className="scroll-smooth dark">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+      </head>
+      <body suppressHydrationWarning className="bg-slate-950 text-slate-50 antialiased min-h-screen">
+        {children}
+        <Toaster theme="dark" position="bottom-right" richColors />
+      </body>
+    </html>
   )
 }

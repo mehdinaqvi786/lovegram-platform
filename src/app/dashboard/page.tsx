@@ -1,12 +1,12 @@
 'use client'
 
-import { useAuth } from '@clerk/nextjs'
 import Link from 'next/link'
 import { Button } from '@/components/ui'
 import { ROUTES } from '@/constants'
+import { useAuthClient } from '@/hooks/useCurrentUser'
 
 export default function DashboardHome() {
-  const { signOut } = useAuth()
+  const { signOut } = useAuthClient()
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900">

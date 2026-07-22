@@ -1,42 +1,57 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
-import { useUser } from '@clerk/nextjs'
-import { ArrowLeft, Star } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Heart, Star } from 'lucide-react'
 import { Button } from '@/components/ui'
 import { ROUTES } from '@/constants'
+import { useCurrentUser } from '@/hooks/useCurrentUser'
 
-const sampleMatches = [
-  {
-    id: 'sofia',
-    name: 'Sofia',
-    age: 27,
-    location: 'Lisbon',
-    compatibility: 92,
-    highlight: 'Shares your love of sunrise walks and cozy coffee dates.',
-  },
-  {
-    id: 'ethan',
-    name: 'Ethan',
-    age: 29,
-    location: 'Barcelona',
-    compatibility: 88,
-    highlight: 'Passionate about music, travel, and meaningful conversations.',
-  },
-  {
-    id: 'maya',
-    name: 'Maya',
-    age: 25,
-    location: 'Berlin',
-    compatibility: 94,
-    highlight: 'A thoughtful soul who values honesty, adventure, and quiet nights in.',
-  },
-]
+type SuggestedUser = {
+  id: string
+  firstName: string
+  lastName: string
+  fullName: string
+  bio: string
+  profilePicture?: string
+}
 
 export default function DashboardMatchesPage() {
-  const { user, isLoaded } = useUser()
+  const { user, loading } = useCurrentUser()
   const displayName = useMemo(() => user?.firstName || 'Friend', [user])
+  const [matches, setMatches] = useState<SuggestedUser[]>([])
+  const [loadingMatches, setLoadingMatches] = useState(true)
+  const [noMatches, setNoMatches] = useState(false)
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      try {
+        const response = await fetch('/api/users/suggestions', { credentials: 'include' })
+        if (!response.ok) {
+          setNoMatches(true)
+          return
+        }
+
+        const data = await response.json()
+        if (Array.isArray(data.users) && data.users.length > 0) {
+          setMatches(
+            data.users.map((user: any) => ({
+              ...user,
+              fullName: [user.firstName, user.lastName].filter(Boolean).join(' '),
+            }))
+          )
+        } else {
+          setNoMatches(true)
+        }
+      } catch {
+        setNoMatches(true)
+      } finally {
+        setLoadingMatches(false)
+      }
+    }
+
+    fetchSuggestions()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-slate-100">
@@ -46,9 +61,9 @@ export default function DashboardMatchesPage() {
             <p className="text-sm uppercase tracking-[0.25em] text-rose-400">Matches</p>
             <h1 className="mt-3 text-4xl font-semibold">Discover your next connection</h1>
             <p className="mt-2 max-w-2xl text-slate-400">
-              {isLoaded
-                ? `Hi ${displayName}, here are your most compatible matches based on your profile and preferences.`
-                : 'Loading your match suggestions...'}
+              {loading
+                ? 'Loading your match suggestions...'
+                : `Hi ${displayName}, here are your most compatible matches based on your profile and preferences.`}
             </p>
           </div>
 
@@ -63,34 +78,53 @@ export default function DashboardMatchesPage() {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {sampleMatches.map((match) => (
-            <div key={match.id} className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/20 transition hover:-translate-y-1 hover:border-rose-500/20">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-2xl font-semibold text-white">{match.name}, {match.age}</p>
-                  <p className="mt-1 text-sm text-slate-400">{match.location}</p>
-                </div>
-                <div className="rounded-3xl bg-rose-500/10 px-3 py-2 text-sm font-semibold text-rose-300">
-                  {match.compatibility}%
-                </div>
-              </div>
-
-              <p className="mt-6 text-slate-300">{match.highlight}</p>
-
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link href={`${ROUTES.DASHBOARD.MATCHES}/${match.id}`} className="w-full sm:w-auto">
-                  <Button variant="secondary" className="w-full sm:w-auto">
-                    Message
-                  </Button>
-                </Link>
-                <Link href={`${ROUTES.DASHBOARD.MATCHES}/${match.id}`} className="w-full sm:w-auto">
-                  <Button variant="ghost" className="w-full sm:w-auto">
-                    View profile
-                  </Button>
-                </Link>
-              </div>
+          {loadingMatches ? (
+            <div className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-12 text-center text-slate-400 col-span-full">
+              Discovering your next meaningful connection...
             </div>
-          ))}
+          ) : noMatches ? (
+            <div className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-12 text-center text-slate-400 col-span-full">
+              No profiles are available yet. Update your profile to attract real matches and check back soon.
+            </div>
+          ) : (
+            matches.map((match) => (
+              <div key={match.id} className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/20 transition hover:-translate-y-1 hover:border-pink-500/20">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-3xl bg-rose-500/10 text-white">
+                      {match.profilePicture ? (
+                        <img src={match.profilePicture} alt={match.fullName} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-lg font-semibold">{match.fullName.split(' ').map((part) => part[0]).join('').toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-2xl font-semibold text-white">{match.fullName || match.firstName}</p>
+                      <p className="mt-1 text-sm text-rose-300">Couple-friendly partner</p>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl bg-pink-500/10 px-3 py-2 text-sm font-semibold text-pink-200">
+                    <Heart className="mr-1 inline-block h-4 w-4" /> Match
+                  </div>
+                </div>
+
+                <p className="mt-6 text-slate-300">{match.bio}</p>
+
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <Link href={`${ROUTES.DASHBOARD.MATCHES}/${match.id}`} className="w-full sm:w-auto">
+                    <Button variant="secondary" className="w-full sm:w-auto">
+                      Message
+                    </Button>
+                  </Link>
+                  <Link href={`${ROUTES.DASHBOARD.MATCHES}/${match.id}`} className="w-full sm:w-auto">
+                    <Button variant="ghost" className="w-full sm:w-auto">
+                      View profile
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
         <div className="mt-10 rounded-[2rem] border border-white/10 bg-slate-900/80 p-6 text-slate-400">

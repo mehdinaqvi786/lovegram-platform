@@ -1,38 +1,77 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import { ArrowLeft } from 'lucide-react'
+import { ObjectId } from 'mongodb'
 import { ROUTES } from '@/constants'
+import { getMongoClient } from '@/lib/mongodb'
+import { verifyToken } from '@/lib/auth'
 import ThreadDetailClient, { ThreadData } from './ThreadDetailClient'
 
-const threadDetails: ThreadData[] = [
-  {
-    id: 'sofia-thread',
-    name: 'Sofia',
-    preview: 'Can we meet for coffee this weekend?',
-    messages: [
-      { from: 'Sofia', text: 'I would love that. I know a cozy place by the river.', time: '2h ago' },
-      { from: 'You', text: 'That sounds perfect. Saturday afternoon work for you?', time: '1h ago' },
-    ],
-  },
-  {
-    id: 'ethan-thread',
-    name: 'Ethan',
-    preview: 'I loved your playlist idea — let’s share favorites!',
-    messages: [
-      { from: 'Ethan', text: 'I made a new playlist of songs for our next road trip.', time: 'Yesterday' },
-      { from: 'You', text: 'I can’t wait to hear it. Send it over!', time: 'Yesterday' },
-    ],
-  },
-  {
-    id: 'maya-thread',
-    name: 'Maya',
-    preview: 'How did your weekend getaway go? I want to hear all about it.',
-    messages: [
-      { from: 'Maya', text: 'I hope your trip was magical. Tell me everything!', time: '3d ago' },
-      { from: 'You', text: 'It was beautiful. I’ll share photos and stories tonight.', time: '2d ago' },
-    ],
-  },
-]
+async function getThreadData(threadId: string, userId: string): Promise<ThreadData | null> {
+  try {
+    const client = await getMongoClient()
+    const db = client.db()
+    const threads = db.collection('threads')
+    const users = db.collection('users')
+
+    let thread = null
+    const currentUserId = new ObjectId(userId)
+    const userThreadId = ObjectId.isValid(threadId) ? new ObjectId(threadId) : null
+
+    if (userThreadId) {
+      thread = await threads.findOne({ _id: userThreadId, participants: currentUserId })
+    }
+
+    const isMatchUserId = userThreadId && threadId !== userId
+
+    const otherUser = isMatchUserId ? await users.findOne({ _id: userThreadId }) : null
+    if (!thread && isMatchUserId && otherUser) {
+      thread = await threads.findOne({
+        participants: { $all: [currentUserId, userThreadId!] },
+      })
+    }
+
+    if (!thread && isMatchUserId && otherUser) {
+      const insertResult = await threads.insertOne({
+        participants: [currentUserId, userThreadId],
+        matchId: userThreadId,
+        participantName: otherUser.firstName || 'Unknown',
+        messages: [],
+        lastMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+
+      thread = await threads.findOne({ _id: insertResult.insertedId })
+    }
+
+    if (!thread) return null
+
+    const otherParticipantId = thread.participants?.find((id: any) => id.toString() !== userId)
+    let participantName = thread.participantName || 'Unknown'
+
+    if (otherParticipantId) {
+      const otherUser = await users.findOne({ _id: otherParticipantId })
+      if (otherUser) {
+        participantName = [otherUser.firstName, otherUser.lastName].filter(Boolean).join(' ') || 'Unknown'
+      }
+    }
+
+    return {
+      id: thread._id.toString(),
+      name: participantName,
+      preview: thread.lastMessage?.text || '',
+      messages: (thread.messages || []).map((msg: any) => ({
+        from: msg.senderId === userId ? 'You' : msg.senderName || participantName,
+        text: msg.text || '',
+        time: msg.time || 'unknown',
+      })),
+    }
+  } catch {
+    return null
+  }
+}
 
 interface ThreadDetailPageProps {
   params: Promise<{
@@ -42,7 +81,25 @@ interface ThreadDetailPageProps {
 
 export default async function ThreadDetailPage({ params }: ThreadDetailPageProps) {
   const { threadId } = await params
-  const thread = threadDetails.find((item) => item.id === threadId)
+
+  const headersList = await headers()
+  const cookieHeader = headersList.get('cookie') || ''
+  const tokenMatch = cookieHeader.match(/token=([^;]+)/)
+  const token = tokenMatch?.[1]
+
+  let userId = ''
+  if (token) {
+    try {
+      const payload = verifyToken(token)
+      userId = payload.userId
+    } catch {
+      notFound()
+    }
+  } else {
+    notFound()
+  }
+
+  const thread = await getThreadData(threadId, userId)
 
   if (!thread) {
     notFound()
